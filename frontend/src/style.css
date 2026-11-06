@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; color: #172036; background: #f4f6fa; margin: 0; }
+main { max-width: 40rem; margin: 5rem auto; padding: 2rem; background: white; border-radius: .75rem; }
+form { display: grid; gap: .75rem; }
+input, button { padding: .75rem; font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
