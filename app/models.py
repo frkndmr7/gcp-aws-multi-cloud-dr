@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, HttpUrl, field_validator
+from app.url_validation import validate_public_url
 
 
 class CreateURL(BaseModel):
@@ -9,9 +10,7 @@ class CreateURL(BaseModel):
     @field_validator('original_url', mode='before')
     @classmethod
     def check_length(cls, value: object) -> object:
-        if isinstance(value, str) and len(value) > 2048:
-            raise ValueError('URL must be at most 2048 characters')
-        return value
+        return validate_public_url(value)
 
 
 class URLRecord(BaseModel):
