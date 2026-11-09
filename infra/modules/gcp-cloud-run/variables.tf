@@ -39,14 +39,15 @@ variable "environment" {
   description = "Non-secret application environment variables."
   type        = map(string)
   default = {
-    SERVING_PROVIDER = "gcp"
-    CLOUD_ROLE       = "primary"
-    WRITER_MODE      = "frozen"
-    DR_READY         = "false"
+    SERVING_PROVIDER   = "gcp"
+    CLOUD_ROLE         = "primary"
+    WRITER_MODE        = "frozen"
+    DR_READY           = "false"
+    REPOSITORY_BACKEND = "firestore"
   }
   validation {
-    condition     = lookup(var.environment, "SERVING_PROVIDER", "") == "gcp" && lookup(var.environment, "WRITER_MODE", "") == "frozen" && lookup(var.environment, "DR_READY", "") == "false"
-    error_message = "Initial core deployment must use GCP with writer frozen and DR readiness disabled."
+    condition     = lookup(var.environment, "SERVING_PROVIDER", "") == "gcp" && lookup(var.environment, "WRITER_MODE", "") == "frozen" && lookup(var.environment, "DR_READY", "") == "false" && lookup(var.environment, "REPOSITORY_BACKEND", "") == "firestore"
+    error_message = "Initial core deployment must use GCP with writer frozen, DR readiness disabled, and Firestore selected."
   }
 }
 

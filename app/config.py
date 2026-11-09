@@ -9,12 +9,15 @@ class Settings:
     role: Literal['primary', 'secondary'] = 'primary'
     writer_mode: Literal['active', 'standby', 'frozen'] = 'active'
     dr_ready: bool = False
+    repository_backend: Literal['memory', 'firestore'] = 'memory'
 
     def __post_init__(self) -> None:
         if self.provider not in ('gcp', 'aws') or self.role not in ('primary', 'secondary'):
             raise ValueError('Invalid provider or role')
         if self.writer_mode not in ('active', 'standby', 'frozen'):
             raise ValueError('Invalid writer mode')
+        if self.repository_backend not in ('memory', 'firestore'):
+            raise ValueError('Invalid repository backend')
 
     @classmethod
     def from_env(cls) -> 'Settings':
@@ -24,4 +27,5 @@ class Settings:
         ready = os.getenv('DR_READY', 'false').lower()
         if ready not in ('true', 'false'):
             raise ValueError('DR_READY must be true or false')
-        return cls(provider=provider, role=role, writer_mode=mode, dr_ready=ready == 'true')
+        return cls(provider=provider, role=role, writer_mode=mode, dr_ready=ready == 'true',
+                   repository_backend=os.getenv('REPOSITORY_BACKEND', 'memory'))

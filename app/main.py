@@ -2,8 +2,11 @@ import logging
 import secrets
 import string
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from app.config import Settings
 from app.models import CreateURL, URLRecord
 from app.repositories.base import URLRepository
@@ -18,8 +21,30 @@ def generate_code() -> str:
 
 def create_app(settings: Settings | None = None, repository: URLRepository | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
-    repo = repository if repository is not None else InMemoryRepository()
-    app = FastAPI(title='URL Shortener', docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        client = None
+        if repository is not None:
+            app.state.repository = repository
+        elif settings.repository_backend == 'memory':
+            app.state.repository = InMemoryRepository()
+        else:
+            from google.cloud import firestore
+            from app.repositories.firestore import FirestoreRepository
+            client = firestore.Client(database='(default)')
+            app.state.repository = FirestoreRepository(client)
+        try:
+            yield
+        finally:
+            if client is not None:
+                client.close()
+
+    app = FastAPI(title='URL Shortener', docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    # Existing callers that do not enter lifespan retain memory behavior.
+    if repository is not None:
+        app.state.repository = repository
+    elif settings.repository_backend == 'memory':
+        app.state.repository = InMemoryRepository()
 
     @app.exception_handler(Exception)
     async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
@@ -33,13 +58,13 @@ def create_app(settings: Settings | None = None, repository: URLRepository | Non
         for _ in range(5):
             record = URLRecord(id=generate_code(), original_url=str(payload.original_url),
                                created_at=datetime.now(timezone.utc), origin_cloud=settings.provider)
-            if repo.create_if_absent(record):
+            if app.state.repository.create_if_absent(record):
                 return {'code': record.id, 'short_path': f'/r/{record.id}'}
         raise HTTPException(status_code=503, detail='Unable to allocate a short code')
 
     @app.get('/r/{code}')
     def redirect(code: str) -> RedirectResponse:
-        record = repo.get_by_id(code)
+        record = app.state.repository.get_by_id(code)
         if record is None:
             raise HTTPException(status_code=404, detail='Short code not found')
         return RedirectResponse(record.original_url, status_code=307)
@@ -59,6 +84,14 @@ def create_app(settings: Settings | None = None, repository: URLRepository | Non
         if not settings.dr_ready:
             response.status_code = 503
         return {'status': 'ready' if settings.dr_ready else 'not_ready'}
+
+    static_dir = Path(__file__).resolve().parent / 'static'
+    if static_dir.is_dir():
+        app.mount('/assets', StaticFiles(directory=static_dir / 'assets'), name='assets')
+
+        @app.get('/', include_in_schema=False)
+        def index() -> FileResponse:
+            return FileResponse(static_dir / 'index.html')
 
     return app
 
