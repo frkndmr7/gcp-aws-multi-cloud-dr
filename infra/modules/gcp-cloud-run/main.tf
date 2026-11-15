@@ -1,8 +1,9 @@
 resource "google_cloud_run_v2_service" "primary" {
-  project  = var.project_id
-  name     = var.service_name
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  project              = var.project_id
+  name                 = var.service_name
+  location             = var.region
+  ingress              = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  invoker_iam_disabled = false
 
   scaling {
     min_instance_count = 0
