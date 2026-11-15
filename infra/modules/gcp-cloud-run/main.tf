@@ -4,6 +4,11 @@ resource "google_cloud_run_v2_service" "primary" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
+  scaling {
+    min_instance_count = 0
+    max_instance_count = 1
+  }
+
   template {
     service_account = var.service_account_email
     scaling {
@@ -16,7 +21,8 @@ resource "google_cloud_run_v2_service" "primary" {
         container_port = 8000
       }
       resources {
-        limits = { cpu = var.cpu, memory = var.memory }
+        cpu_idle = true
+        limits   = { cpu = var.cpu, memory = var.memory }
       }
       dynamic "env" {
         for_each = var.environment
