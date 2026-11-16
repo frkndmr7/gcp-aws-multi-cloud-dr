@@ -28,11 +28,17 @@ def create_app(settings: Settings | None = None, repository: URLRepository | Non
             app.state.repository = repository
         elif settings.repository_backend == 'memory':
             app.state.repository = InMemoryRepository()
-        else:
+        elif settings.repository_backend == 'firestore':
             from google.cloud import firestore
             from app.repositories.firestore import FirestoreRepository
             client = firestore.Client(database='(default)')
             app.state.repository = FirestoreRepository(client)
+        else:
+            import boto3
+            from app.repositories.dynamodb import DynamoDBRepository
+            resource = boto3.resource('dynamodb', region_name=settings.aws_region)
+            client = resource.meta.client
+            app.state.repository = DynamoDBRepository(resource.Table(settings.dynamodb_table))
         try:
             yield
         finally:

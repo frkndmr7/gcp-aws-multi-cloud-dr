@@ -4,3 +4,5 @@ uvicorn>=0.28,<1
 httpx>=0.27,<1
 pytest>=8,<10
 google-cloud-firestore>=2.20,<3
+boto3>=1.34,<2
+mangum>=0.19,<1
