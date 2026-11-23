@@ -1,10 +1,11 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  expose = true
+  path   = find_in_parent_folders("root.hcl")
 }
 terraform {
   source = "${get_repo_root()}/infra/modules/gcp-iam"
 }
 inputs = {
-  project_id = get_env("GCP_PROJECT_ID", "")
-  region     = get_env("GCP_REGION", "")
+  project_id = include.root.locals.config.project_id
+  region     = include.root.locals.config.gcp_region
 }

@@ -34,6 +34,7 @@ resource "google_compute_backend_service" "primary" {
   name                  = "mcdr-primary-backend"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTP"
+  security_policy       = var.enable_operator_write_gate ? google_compute_security_policy.operator_gate[0].id : null
   backend {
     group = google_compute_region_network_endpoint_group.cloud_run.id
   }

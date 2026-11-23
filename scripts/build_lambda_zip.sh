@@ -20,12 +20,18 @@ import sys
 import zipfile
 
 repo, packages, output = map(pathlib.Path, sys.argv[1:])
-with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+def add_file(archive, path, name):
+    info = zipfile.ZipInfo(str(name), (2020, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.external_attr = 0o100644 << 16
+    archive.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+
+with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in sorted(packages.rglob('*')):
         if path.is_file() and '__pycache__' not in path.parts and not path.is_symlink():
-            archive.write(path, path.relative_to(packages))
+            add_file(archive, path, path.relative_to(packages))
     for path in sorted((repo / 'app').rglob('*.py')):
         if 'tests' not in path.parts and '__pycache__' not in path.parts and not path.is_symlink():
-            archive.write(path, path.relative_to(repo))
+            add_file(archive, path, path.relative_to(repo))
 print('Lambda ZIP:', output)
 ZIP

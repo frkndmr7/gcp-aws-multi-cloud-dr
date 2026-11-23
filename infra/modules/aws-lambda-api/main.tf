@@ -16,10 +16,13 @@ resource "aws_iam_role_policy" "lambda" {
   role = aws_iam_role.lambda.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      { Effect = "Allow", Action = ["dynamodb:GetItem"], Resource = var.table_arn },
-      { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.lambda.arn}:*" }
-    ]
+    Statement = concat(
+      [
+        { Effect = "Allow", Action = ["dynamodb:GetItem"], Resource = var.table_arn },
+        { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.lambda.arn}:*" }
+      ],
+      var.enable_writer_permission ? [{ Effect = "Allow", Action = ["dynamodb:PutItem"], Resource = var.table_arn }] : []
+    )
   })
 }
 
@@ -38,7 +41,7 @@ resource "aws_lambda_function" "secondary" {
     variables = {
       SERVING_PROVIDER   = "aws"
       CLOUD_ROLE         = "secondary"
-      WRITER_MODE        = "standby"
+      WRITER_MODE        = var.writer_mode
       DR_READY           = "false"
       REPOSITORY_BACKEND = "dynamodb"
       DYNAMODB_TABLE     = var.table_name

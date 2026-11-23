@@ -33,3 +33,31 @@ dist/
 build/
 
 /docs/GCP_AWS_Multi_Cloud_DR_Proje_Baglami_ve_Teknik_Tasarim.pdf
+
+/recordings/
+
+# Local visual production and demo recordings
+/docs/architecture/animation/
+/docs/architecture/*
+!/docs/architecture/multi-cloud-dr-architecture-v3.png
+/frontend/scripts/record-dr-*.mjs
+/frontend/scripts/start-dr-recording.mjs
+/frontend/scripts/mark-dr-event.mjs
+
+# Temporary federation experiments
+/infra/live/gcp/federation-test/
+/infra/modules/gcp-federation-test/
+/infra/live/aws/failback-probe/
+/infra/modules/aws-failback-probe/
+
+# Local diagnostics and packaged artifacts
+*.log
+*.zip
+*.mp4
+*.mov
+*.webm
+*.tfstate.backup
+*.tfplan*
+
+# Deployment-specific values (copy local.example.json and fill locally)
+/infra/local.json

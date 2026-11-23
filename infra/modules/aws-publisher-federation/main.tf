@@ -3,8 +3,8 @@ terraform {
   required_providers { aws = { source = "hashicorp/aws", version = "= 6.24.0" } }
 }
 provider "aws" {
-  region              = "eu-west-1"
-  allowed_account_ids = ["109678733855"]
+  region              = var.aws_region
+  allowed_account_ids = [var.aws_account_id]
 }
 variable "google_service_account_id" {
   type = string

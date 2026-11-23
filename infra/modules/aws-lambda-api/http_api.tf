@@ -1,7 +1,7 @@
 resource "aws_apigatewayv2_api" "secondary" {
   name                         = "mcdr-gcp-aws-secondary"
   protocol_type                = "HTTP"
-  disable_execute_api_endpoint = true
+  disable_execute_api_endpoint = var.disable_execute_api_endpoint
 }
 
 resource "aws_apigatewayv2_integration" "secondary" {
@@ -14,14 +14,16 @@ resource "aws_apigatewayv2_integration" "secondary" {
 resource "aws_apigatewayv2_route" "application" {
   for_each = toset([
     "GET /api/status",
+    "GET /api/urls/{code}",
     "POST /api/shorten",
     "GET /r/{code}",
     "GET /health/live",
     "GET /health/dr"
   ])
-  api_id    = aws_apigatewayv2_api.secondary.id
-  route_key = each.value
-  target    = "integrations/${aws_apigatewayv2_integration.secondary.id}"
+  api_id             = aws_apigatewayv2_api.secondary.id
+  route_key          = each.value
+  authorization_type = each.value == "POST /api/shorten" ? var.shorten_authorization_type : "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.secondary.id}"
 }
 
 resource "aws_apigatewayv2_stage" "default" {

@@ -1,5 +1,6 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  expose = true
+  path   = find_in_parent_folders("root.hcl")
 }
 
 dependency "lambda_api" {
@@ -11,9 +12,9 @@ terraform {
 }
 
 inputs = {
-  aws_region           = "eu-west-1"
-  aws_account_id       = "109678733855"
-  domain_name          = "app.shorturldr.online"
-  frontend_bucket_name = "mcdr-gcp-aws-web-109678733855-eu-west-1"
+  aws_region           = include.root.locals.config.aws_region
+  aws_account_id       = include.root.locals.config.aws_account_id
+  domain_name          = include.root.locals.config.hostname
+  frontend_bucket_name = include.root.locals.config.frontend_bucket_name
   api_endpoint         = dependency.lambda_api.outputs.api_endpoint
 }

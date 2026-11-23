@@ -1,4 +1,5 @@
 import logging
+import re
 import secrets
 import string
 from datetime import datetime, timezone
@@ -65,7 +66,7 @@ def create_app(settings: Settings | None = None, repository: URLRepository | Non
             record = URLRecord(id=generate_code(), original_url=str(payload.original_url),
                                created_at=datetime.now(timezone.utc), origin_cloud=settings.provider)
             if app.state.repository.create_if_absent(record):
-                return {'code': record.id, 'short_path': f'/r/{record.id}'}
+                return {'code': record.id, 'short_path': f'/r/{record.id}', 'serving_provider': settings.provider}
         raise HTTPException(status_code=503, detail='Unable to allocate a short code')
 
     @app.get('/r/{code}')
@@ -74,6 +75,16 @@ def create_app(settings: Settings | None = None, repository: URLRepository | Non
         if record is None:
             raise HTTPException(status_code=404, detail='Short code not found')
         return RedirectResponse(record.original_url, status_code=307)
+
+    @app.get('/api/urls/{code}')
+    def check_url(code: str, response: Response) -> dict[str, str | bool]:
+        response.headers['Cache-Control'] = 'no-store'
+        if not re.fullmatch(r'[A-Za-z0-9]{8}', code):
+            raise HTTPException(status_code=404, detail='Short code not found', headers={'Cache-Control': 'no-store'})
+        record = app.state.repository.get_by_id(code)
+        if record is None:
+            raise HTTPException(status_code=404, detail='Short code not found', headers={'Cache-Control': 'no-store'})
+        return {'exists': True, 'origin_cloud': record.origin_cloud}
 
     @app.get('/api/status')
     def status(response: Response) -> dict[str, str]:

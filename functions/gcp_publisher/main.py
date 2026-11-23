@@ -2,7 +2,9 @@
 import hashlib
 import json
 import os
+import re
 from datetime import timezone
+from urllib.parse import urlsplit
 
 import boto3
 import google.auth.transport.requests
@@ -29,12 +31,26 @@ def transform(headers, payload: bytes, project_id: str):
         raise ValueError("Unexpected document path")
     fields = doc.fields
     code = fields["id"].string_value
-    if not code or code != doc.name[len(prefix):] or fields["origin_cloud"].string_value != "gcp" or fields["version"].integer_value != 1:
+    origin = fields["origin_cloud"].string_value
+    if not code or code != doc.name[len(prefix):] or origin not in ("gcp", "aws") or fields["version"].integer_value != 1:
         raise ValueError("Unexpected record")
     created = fields["created_at"].timestamp_value
     if created.tzinfo is None:
         raise ValueError("Timestamp missing timezone")
-    record = {"id": code, "original_url": fields["original_url"].string_value, "origin_cloud": "gcp", "created_at": created.astimezone(timezone.utc).isoformat(), "version": 1}
+    if origin == "aws":
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", code):
+            raise ValueError("Invalid AWS record ID")
+        if source != f"//firestore.googleapis.com/projects/{project_id}/databases/(default)":
+            raise ValueError("Unexpected CloudEvent source")
+        required_types = {"id": "string_value", "original_url": "string_value", "origin_cloud": "string_value", "version": "integer_value", "created_at": "timestamp_value"}
+        if any(name not in fields or fields[name]._pb.WhichOneof("value_type") != kind for name, kind in required_types.items()):
+            raise ValueError("Invalid AWS record fields")
+        url = fields["original_url"].string_value
+        parsed = urlsplit(url)
+        if not url or len(url) > 2048 or parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None or parsed.password is not None or any(c.isspace() for c in url):
+            raise ValueError("Invalid AWS record URL")
+        _ = parsed.port
+    record = {"id": code, "original_url": fields["original_url"].string_value, "origin_cloud": origin, "created_at": created.astimezone(timezone.utc).isoformat(), "version": 1}
     stable_id = hashlib.sha256((source + "\0" + event_id).encode()).hexdigest()
     return {"schema_version": 1, "event_id": stable_id, "record": record}
 
@@ -50,6 +66,14 @@ def publish(event, client, queue_url):
     client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(event, separators=(",", ":")))
 
 
+def log_success(action: str, event: dict, cloud_event_id: str) -> None:
+    try:
+        print(json.dumps({"severity": "INFO", "action": action, "document_id": event["record"]["id"], "origin_cloud": event["record"]["origin_cloud"], "cloud_event_id_sha256": hashlib.sha256(cloud_event_id.encode()).hexdigest()}), flush=True)
+    except Exception:
+        # Logging must not turn a completed send into a retry.
+        pass
+
+
 @app.post("/")
 async def receive(request: Request):
     if os.environ.get("PUBLISHER_ENABLED", "false") != "true":
@@ -58,8 +82,12 @@ async def receive(request: Request):
         if request.headers.get("content-type", "").split(";", 1)[0] != "application/protobuf":
             raise ValueError("Expected protobuf")
         event = transform(request.headers, await request.body(), os.environ["GCP_PROJECT_ID"])
+        if event["record"]["origin_cloud"] == "aws":
+            log_success("skip_replication", event, request.headers["ce-id"])
+            return {"status": "ignored"}
         client = make_sqs_client(os.environ["AWS_ROLE_ARN"], os.environ["AWS_TOKEN_AUDIENCE"], os.environ["AWS_REGION"])
         publish(event, client, os.environ["SQS_QUEUE_URL"])
+        log_success("sent_to_sqs", event, request.headers["ce-id"])
     except Exception:
         # Do not acknowledge failure; Eventarc may retry. Avoid payload/token logs.
         raise HTTPException(status_code=503, detail="Event delivery failed") from None

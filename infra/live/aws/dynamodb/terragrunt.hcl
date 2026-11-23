@@ -1,5 +1,6 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  expose = true
+  path   = find_in_parent_folders("root.hcl")
 }
 
 terraform {
@@ -7,7 +8,8 @@ terraform {
 }
 
 inputs = {
-  aws_region     = "eu-west-1"
-  aws_account_id = "109678733855"
-  table_name     = "mcdr-gcp-aws-urls"
+  aws_region     = include.root.locals.config.aws_region
+  aws_account_id = include.root.locals.config.aws_account_id
+  table_name     = include.root.locals.config.table_name
+  stream_enabled = true
 }

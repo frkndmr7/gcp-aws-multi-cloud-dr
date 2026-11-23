@@ -21,3 +21,8 @@ variable "table_name" {
     error_message = "The table name must be 3-255 valid DynamoDB characters."
   }
 }
+
+variable "stream_enabled" {
+  type    = bool
+  default = false
+}

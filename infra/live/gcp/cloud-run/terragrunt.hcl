@@ -1,5 +1,6 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  expose = true
+  path   = find_in_parent_folders("root.hcl")
 }
 terraform {
   source = "${get_repo_root()}/infra/modules/gcp-cloud-run"
@@ -11,8 +12,11 @@ dependencies {
   paths = ["../firestore"]
 }
 inputs = {
-  project_id            = get_env("GCP_PROJECT_ID", "")
-  region                = get_env("GCP_REGION", "")
-  image                 = get_env("GCP_CONTAINER_IMAGE", "")
+  domain_name = include.root.locals.config.hostname
+
+  project_id            = include.root.locals.config.project_id
+  region                = include.root.locals.config.gcp_region
+  image                 = include.root.locals.config.app_image
+  invoker_iam_disabled  = true
   service_account_email = dependency.iam.outputs.cloud_run_service_account_email
 }
